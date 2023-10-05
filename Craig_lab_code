@@ -1,0 +1,93 @@
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(stats)
+#install.packages("multcomp")
+library(multcomp)
+
+```
+
+```{r setup, include=FALSE}
+
+setwd("C:\\Users\\Simran Patel\\Documents\\MSc Brain Sciences\\Craig Lab\\Lab analysis")
+```
+
+```{r setup, include=FALSE}
+
+data = read.csv("PV_data_CA1.csv")
+
+data$Animal_ID = as.factor(data$Animal_ID)
+data$Genotype = as.factor(data$Genotype)
+data$Animal_age = as.factor(data$Animal_age)
+data$Region = as.factor(data$Region)
+
+data2 = read.csv("PV_data_CA3.csv")
+
+data2$Animal_ID = as.factor(data2$Animal_ID)
+data2$Genotype = as.factor(data2$Genotype)
+data2$Animal_age = as.factor(data2$Animal_age)
+data2$Region = as.factor(data2$Region)
+```
+
+```{r setup, include=FALSE}
+ 
+PV_analysis = aov(Density_PV ~ Genotype*Animal_age, data = data)
+summary(PV_analysis)
+post_hoc = glht(PV_analysis, linfct=mcp(Genotype= "Tukey", Animal_age = "Tukey"))
+summary(post_hoc)
+
+PV_analysis2 = aov(Density_PV ~ Genotype*Animal_age, data = data2)
+summary(PV_analysis2)
+post_hoc2 = glht(PV_analysis2, linfct=mcp(Genotype= "Tukey", Animal_age = "Tukey"))
+summary(post_hoc2)
+
+```
+
+
+```{r setup, include=FALSE}
+ 
+NeuN_analysis = aov(NeuN_intensity ~ Genotype*Animal_age, data = data)
+summary(NeuN_analysis)
+post_hoc3 = glht(NeuN_analysis, linfct=mcp(Genotype="Tukey", Animal_age = "Tukey"))
+summary(post_hoc3)
+
+
+NeuN_analysis2 = aov(NeuN_intensity ~ Genotype*Animal_age, data = data2)
+summary(NeuN_analysis2)
+post_hoc7 = glht(NeuN_analysis2, linfct=mcp(Genotype="Tukey", Animal_age = "Tukey"))
+summary(post_hoc7)
+```
+
+```{r setup, include=FALSE}
+
+data3 = read.csv("Colocalised_data_CA1.csv")
+
+data3$Animal_ID = as.factor(data3$Animal_ID)
+data3$Genotype = as.factor(data3$Genotype)
+data3$Animal_age = as.factor(data3$Animal_age)
+data3$Region = as.factor(dat32$Region)
+
+data4 = read.csv("Colocalised_data_CA3.csv")
+
+data4$Animal_ID = as.factor(data4$Animal_ID)
+data4$Genotype = as.factor(data4$Genotype)
+data4$Animal_age = as.factor(data4$Animal_age)
+data4$Region = as.factor(data4$Region)
+
+```
+
+```{r setup, include=FALSE}
+ 
+colocalisation = aov(Percentage_colocalisation ~ Animal_age, 
+                      data = data3)
+summary(colocalisation)
+
+colocalisation2 = aov(Percentage_colocalisation ~ Animal_age, 
+                      data = data4)
+summary(colocalisation2)
+
+post_hoc_5 = glht(colocalisation2, linfct=mcp(Animal_age ="Tukey"))
+summary(post_hoc_5)
+```
