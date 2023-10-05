@@ -1,0 +1,491 @@
+---
+title: "Reproduced Report"
+author: "Student ID 2732822P"
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float:  
+       collapsed: false
+       smooth_scroll: true
+    number_sections: false
+    theme: 
+      bootswatch: cerulean
+      version: 4
+    fig_caption: yes
+bibliography: references.bib
+csl: apa.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+
+library(tidyverse) 
+library(kableExtra)
+library(faux)
+
+```
+
+## Introduction
+
+The purpose of this reproducible report is to report the associations between disgust and sociosexual orientation. These concepts were measured by the completion of the Three Domains of Disgust Scale (Disgust) and the revised Sociosexual Orientation Inventory (SOI) [@penke2011b; @tybur2009a]. In addition, a brief demographic questionnaire asking for age and sex was also completed.
+
+The Disgust questionnaire consisted of 21 questions, divided into 3 domains: Moral, Sexual, and Pathogen. Each question, within a domain, was coded using a 0-6 scale. The SOI questionnaire consisted of 9 questions, divided into 3 domains: Behaviour, Attitude, and Desire. Each question, within the domain, was coded using a different 1-5 scale. In addition, in each data set, "NA" was used to denote missing data whenever a user did not complete a question [@oshea2019].
+
+## Methods
+
+### Materials
+
+To glance over the questions in the Disgust and SOI questionnaires, refer to the following:
+
+-   The Three Domains of Disgust Questionnaire \@ref(tab:disgust)
+-   The Revised SOI Questionnaire \@ref(tab:soi)
+
+### Participants
+
+```{r data, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+#Load the data, missing values in the disgust.csv and soi.csv are "NA"
+disgust = read_csv("data/disgust.csv", na = "NULL")
+soi = read_csv("data/soi.csv", na = "NULL")
+users = read_csv("data/users.csv")
+
+```
+
+```{r fixed_data_sets, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+#Changed erroneous ages in the users.csv data set to NA, rounded non-erroneous ages, and removed the old 'age' column 
+fixed_age = users |> mutate(new_age = ifelse(users$age>100, NA,round(users$age,0)))
+final_age_fixed = subset(fixed_age, select = -age)
+
+#Created a final users data set, recoded the sex column, and removed the old 'sex' column
+final_age_fixed$sex_fixed = recode(final_age_fixed$sex,
+                                    "FEMALE" = "F",
+                                    "female" = "F", 
+                                    "f" = "F", 
+                                    "MALE" = "M", 
+                                    "male" = "M", 
+                                    "m" = "M")
+sex_users = subset(final_age_fixed, select = -sex)
+final_users = sex_users |> rename(Sex = sex_fixed, Age = new_age)
+
+```
+
+```{r recoded_soi, echo=FALSE, message=FALSE, warning = FALSE, include=FALSE}
+
+#Removed the "NAs" from the original soi.csv data set
+soi_na_omit = na.omit(soi)
+
+#Recoded the SOI domain scoring scales so that they use a 1-5 scoring scale 
+final_soi_recoded = soi_na_omit |>
+  pivot_longer(behaviour_1:desire_3) |>
+  mutate(value = recode(value,
+                        "0" = 1,
+                        "1" = 2,
+                        "2 to 3" = 3, 
+                        "4 to 7" = 4, 
+                        "8 or more" = 5, 
+                        "totally agree" = 1, 
+                        "agree" = 2, 
+                        "neutral" = 3, 
+                        "disagree" = 4, 
+                        "totally disagree" = 5, 
+                        "never" = 1, 
+                        "very seldom" = 2, 
+                        "about once a month" = 3,
+                        "about once a week" = 4, 
+                        "nearly every day" = 5)) |>
+  pivot_wider(names_from = name, values_from = value)
+
+#Reverse coded question 3 in the SOI attitude domain   
+reverse_coded_att = c("attitude_3")
+final_soi_recoded[, reverse_coded_att] = 6- final_soi_recoded[, reverse_coded_att]
+
+```
+
+```{r s_domains, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+#Calculated the sum of the three questions in each domain to get domain scores
+soi_long_table = final_soi_recoded |> pivot_longer(behaviour_1:desire_3)
+
+soi_domains = soi_long_table |>
+  separate(name, into = c("domain", "n"), sep = -2) |>
+  group_by(user_id, domain) |>
+  summarise(score = sum(value),
+            .groups = "drop") |>
+  pivot_wider(names_from = domain, values_from = score)
+
+```
+
+```{r d_domains, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+#Removed the "NAs" from the original disgust.csv data set
+disgust_na_omit = na.omit(disgust)
+
+#Calculated the sum of the seven questions in each domain to get domain scores
+disgust_domains = disgust_na_omit  |> pivot_longer(`mor-1`:`pat-7`) |>
+  separate(name, into = c("domain", "n"), sep = -2) |>
+  group_by(user_id, domain) |>
+  summarise(score = sum(value),
+            .groups = "drop") |>
+  pivot_wider(names_from = domain, values_from = score)
+```
+
+```{r final_data, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+#Final combined Disgust and SOI data set and renamed Domains 
+disgust_soi_domains = inner_join(disgust_domains, soi_domains, by = "user_id") 
+final_d_s = disgust_soi_domains |> rename(Moral = mor, Pathogen = pat, Sexual = sex, Attitude = attitude, Behaviour = behaviour, Desire = desire)
+
+```
+
+```{r participants, echo=FALSE, message=FALSE, warning=FALSE}
+
+#Calculated the total number of participants across the 3 questionnaires 
+total_d_s = full_join(disgust, soi, by = "user_id")
+total_d_s_u = full_join(total_d_s, final_users, by = "user_id")
+total_parts = nrow(total_d_s_u)
+
+#Calculated how many participants started each of the questionnaires 
+demo_start = nrow(final_users)
+disgust_start = nrow(disgust)
+soi_start = nrow(soi)
+
+#Calculated how many participants started all three questionnaires
+started_d_s = inner_join(disgust, soi, by = "user_id")
+started_d_s_u = inner_join(started_d_s, final_users, by = "user_id")
+started_all_three = nrow(started_d_s_u)
+
+#Exclusion criteria: participants who completed ALL Disgust and SOI questions
+final_comp_d_s = nrow(final_d_s)
+
+```
+
+In total there were **`r total_parts`** participants of which **`r demo_start`** started the demographic questionnaire, **`r disgust_start`** started the Disgust questionnaire, **`r soi_start`** started the SOI questionnaire, and **`r started_all_three`** started all three questionnaires. After the exclusion criteria was applied, i.e., removing all participants who did not complete all of the Disgust and SOI questions, the total number of participants decreased to **`r final_comp_d_s`**.
+
+See Figure \@ref(fig:descriptives) for the distribution of age and sex.
+
+### Descriptives
+
+```{r descriptives, fig.cap= 'The distribution of age and sex.', message= FALSE, warning= FALSE, echo= FALSE, fig.width= 6, fig.height= 4}
+
+#Matched final_d_s users to their matching demographic info 
+d_s_demo_data = left_join(final_d_s, final_users, by = "user_id")
+
+demographics_plot = ggplot(d_s_demo_data, aes(Age, fill = Sex)) +
+                  geom_histogram(binwidth = 1, 
+                                 color = "black") +
+                  scale_fill_discrete(type = c("darkorange3", "darkorchid4"),
+                                      labels = c("Female", "Male")) +
+                  labs(title =" Participant Demographics",
+                       x = "Age", 
+                       y = "Number of Participants") + 
+                  theme_minimal(base_size = 13) +
+                  theme(axis.text=element_text(size= 11))
+  
+print(demographics_plot) 
+```
+
+## Results
+
+The tidyverse and faux packages were used for R [@rcoreteam2022] to process the data and create plots.
+
+### Mean and Standard Deviation
+
+Prior to calculating the mean and standard deviation of each domain in the Disgust and SOI questionnaires, the following steps were required:
+
+1.  Using the original Disgust and SOI data sets, participants who did not complete all of the Disgust and SOI questions were excluded to create two new data sets.
+2.  Using the new SOI data set, each domain's scoring scale was recoded to use a different 1-5 scoring scale and question 3 in the attitude domain was reverse coded. The new Disgust data set did not need to be recoded as it used a 0-6 scoring scale.
+3.  The Disgust and SOI data sets were combined and the sum of the questions in each domain was calculated to get a domain score for each domain.
+
+```{r domains, message= FALSE, warning= FALSE, echo= FALSE}
+
+#Calculated the mean and standard deviation, for all 6 domains, using the domain scores
+domains_table = final_d_s |> 
+  pivot_longer(
+    cols = Moral: Desire, 
+    names_to = "domain", 
+    values_to = "score") |>
+  group_by(domain) |> 
+  summarise(mean= round(mean(score), 2), 
+            sd= round(sd(score), 2), 
+            .groups = "drop") %>%
+  kbl(caption = "The Mean and Standard Deviation of the Domains", 
+      col.names = c("Domain", "Mean", "Standard Deviation")) %>%
+   kable_styling(bootstrap_options = c("bordered", "striped", "condensed"), full_width = FALSE, position = "left", font_size = 14)
+
+domains_table
+```
+
+### Correlations
+
+```{r correlations_test, message= FALSE, warning= FALSE, echo= FALSE, results= FALSE}
+
+#Performed a Pearson correlation test on moral and desire domain scores for the full data set 
+m_d_corr = cor.test(d_s_demo_data$Moral, 
+                           d_s_demo_data$Desire,
+                           method = c("pearson"))
+
+#Performed a Pearson correlation test on moral and desire domain scores for females and males separately
+m_d_female = d_s_demo_data |> filter(Sex == "F")
+
+m_d_male = d_s_demo_data |> filter(Sex == "M")
+
+m_d_corr_f = cor.test(m_d_female$Moral, 
+                             m_d_female$Desire,
+                             method = c("pearson"))
+
+m_d_corr_m = cor.test(m_d_male$Moral, 
+                             m_d_male$Desire,
+                             method = "pearson")
+```
+
+```{r corr_functions, message= FALSE, warning= FALSE, echo= FALSE, results= FALSE}
+
+#Function for the p-value
+reported_p = function (p, digits = 5) {
+  if (p < .001) {
+    reported ="p < .001"
+  } else {
+    roundp = round(p, digits)
+    reported = paste("p =", roundp)
+  }
+  return(reported)
+}
+
+#Significance function
+sig_test_func = function (s) {
+  if (s < .001) {
+    returned = "Significant"
+  } else {
+    returned = paste("No significance")
+  }
+  return(returned)
+}
+
+```
+
+```{r corr_results_all, message= FALSE, warning= FALSE, echo= FALSE, results= FALSE}
+
+#Correlation parameters for Moral and Desire scores for the full data set
+df_all = m_d_corr$parameter
+r_all = m_d_corr$estimate |> round(2)
+conf_intl_all = m_d_corr$conf.int[1] |> round(2)
+conf_inth_all = m_d_corr$conf.int[2] |> round(2)
+#Correlation results for Moral and Desire scores for the full data set
+p_value_all = reported_p(m_d_corr$p.value)
+sig_test_all = sig_test_func(m_d_corr$p.value)
+t_all = m_d_corr$statistic |> round(2)
+conf_intl_all = m_d_corr$conf.int[1] |> round(2)
+conf_inth_all = m_d_corr$conf.int[2] |> round(2)
+
+```
+
+```{r corr_results_f, message= FALSE, warning= FALSE, echo= FALSE, results= FALSE}
+
+#Correlation parameters for Moral and Desire scores for Females 
+df_f = m_d_corr_f$parameter
+r_f = m_d_corr_f$estimate |> round(2)
+#Correlation results for Moral and Desire scores for Females
+p_valuef = reported_p(m_d_corr_f$p.value)
+sig_test_f = sig_test_func(m_d_corr_f$p.value)
+t_f = m_d_corr_f$statistic |> round(2)
+conf_intl_f = m_d_corr_f$conf.int[1] |> round(2)
+conf_inth_f = m_d_corr_f$conf.int[2] |> round(2)
+
+```
+
+```{r corr_results_m, message= FALSE, warning= FALSE, echo= FALSE, results= FALSE}
+
+#Correlation parameters for Moral and Desire scores for Males
+df_m = m_d_corr_m$parameter
+r_m = m_d_corr_m$estimate |> round(2)
+#Correlation results for Moral and Desire scores for Males 
+p_valuem = reported_p(m_d_corr_m$p.value)
+sig_test_m = sig_test_func(m_d_corr_m$p.value)
+t_m = m_d_corr_m$statistic |> round(2)
+conf_intl_m = m_d_corr_m$conf.int[1] |> round(2)
+conf_inth_m = m_d_corr_m$conf.int[2] |> round(2)
+
+```
+
+The table below summarises the correlation between the Disgust questionnaire domain 'Moral' and the SOI questionnaire domain 'Desire'. It is noteworthy that the abbreviations df refers to the degrees of freedom and CI_L and CI_H refers to the lower and higher 95% confidence intervals.
+
+```{r corr, message= FALSE, warning= FALSE, echo= FALSE}
+
+m_d_table = tibble(
+  Scenario = c("All", "Females", "Males"),
+  p_value = c(p_value_all, p_valuef, p_valuem),
+  Significance = c(sig_test_all, sig_test_f, sig_test_m),
+  Correlation = c(r_all, r_f, r_m),
+  Statistic = c(t_all, t_f, t_m), 
+  df = c(df_all, df_f, df_m), 
+  CI_L = c(conf_intl_all, conf_intl_f, conf_intl_m),
+  CI_H = c(conf_inth_all, conf_inth_f, conf_inth_m)
+) |> kbl(digits = 5, 
+           caption = "The Correlation Between Moral and Desire") %>%
+  kable_styling(bootstrap_options = c("bordered", "striped", "condensed"), 
+                font_size = 14)
+
+m_d_table
+```
+
+```{r corr_graphs, message=FALSE, warning=FALSE, echo=FALSE, results=FALSE, include=FALSE}
+
+#Process of creating one correlation plot for the full data set, and females and males separately
+ggplot(d_s_demo_data, aes(Moral, Desire)) +
+  geom_smooth(method = lm) +
+  geom_smooth(data = m_d_female, method = lm, color = "firebrick") +
+  geom_smooth(data = m_d_male, method = lm, color = "springgreen4")
+
+moral_desire = d_s_demo_data |>
+  mutate(Sex = "All") |>
+  bind_rows(m_d_female) |>
+  bind_rows(m_d_male) |>
+  mutate(Sex = factor(Sex, levels = c("All", "F", "M")))
+
+ggplot(moral_desire, aes(Moral, Desire, color = Sex)) +
+  geom_smooth(method = lm, se = FALSE)
+
+```
+
+```{r corrgraphs, fig.cap= 'The correlation between Moral and Desire for the full data set, and females and males separately.', message= FALSE, warning= FALSE, echo= FALSE, fig.width= 10, fig.height= 5}
+
+corr_graphs = ggplot(moral_desire, aes(Moral, Desire, color = Sex)) +
+  geom_point() +
+  geom_smooth(method = lm) + 
+  facet_wrap(~Sex) +
+  theme_minimal(base_size = 14) +
+  scale_color_manual(values = c("darkorange3","firebrick","springgreen4"), 
+                     labels = c("All", "Females", "Males")) +
+  labs(title = "Correlations between Moral and Disgust") +
+   theme(axis.text=element_text(size= 13))
+
+print(corr_graphs)
+
+```
+
+### Power Simulation
+
+```{r simulation, message= FALSE, warning= FALSE, echo= FALSE, results= FALSE}
+
+#Created a function that creates two variables with n = obs and r = correlation to give p-values for the correlation when the function is run
+set.seed(2732822)
+
+n = 1500
+r = 0.2
+
+simulation_corr_test = function(n = 1500,r = 0.2){
+  data = rnorm_multi(
+    n = n,
+    vars = 2,
+    r = r,
+    varnames = c("x","y")
+  )
+  sim_c_test = cor.test(data$x,data$y)
+  sim_c_test$p.value
+}
+
+simulation_corr_test(1500,0.2)
+
+#Calculated the power through 1000 iterations
+rep = replicate(1000,simulation_corr_test(1500,0.2))
+alpha = 0.025
+power = mean(rep<alpha)
+```
+
+While conducting studies, two types of errors can be easily committed: a type I error or a type II error. A Type I error is when a study concludes that there was an effect when there was no effect. In contrast, a type II error is when a study concludes that there was no effect when there was an effect.
+
+Now, to define statistical power.
+
+Statistical power is when an effect is found in a study and so the null hypothesis is correctly rejected. This is also known as a true positive result as researchers are not committing either type of error. It is also noteworthy that when calculating the statistical power of a study, i.e., taking the mean of each iteration's p-value and comparing it to the significance level, achieving a statistical power that is either close to or equal to one concludes that there is a high chance of a true positive result. In addition, the parameters that influence statistical power are sample size, significance level, and correlation. A higher significance level (i.e., 0.05 or higher) and/or correlation (i.e., between 0.5 and 1 or -0.5 and -1) has the potential of yielding a power that is either close to or equal to one. However, when the sample size parameter is very large, statistical power will always be either close to or equal to 1 regardless of the other parameters namely, the significance level and/or correlation.
+
+To test this, a graph was created \@ref(fig:powerplot), showing the range of sample sizes, up to **`r n`**, which yielded a statistical power that is either close to or equal to **`r power`**. The significance level was, **`r alpha`** and the correlation was, **`r r`**. As one can see, although the significance level and correlation was not relatively high, larger sample sizes, i.e., ranging from 400 or higher, yielded a statistical power that was either close to or equal to **`r power`** - which confirms the argument above.
+
+```{r powerplot, fig.cap= 'Statistical Power Analysis', message= FALSE, warning= FALSE, echo= FALSE, include=TRUE, fig.height= 4, fig.width= 7}
+
+#Another custom function to return power
+power_func = function(n = 1500, r = 0.2,  reps = 1000, alpha = 0.025) {
+  power_sim = replicate(1000, simulation_corr_test(n, r))
+  mean(power_sim < alpha)
+}
+
+#Table of the n values you want to check and the power function for each n 
+table_power <- tibble(
+  n = seq(50, 1500, by = 50)
+) |> mutate(power = map_dbl(n, power_func))
+
+#Plot displaying results
+power_plot = ggplot(table_power, aes(n, power)) +
+  geom_line(color = "dodgerblue3") +
+  geom_point() +
+  geom_hline(yintercept = 1) +
+  labs(title = "Statistical Power Analysis Depending on the Number of Participants",
+       x = "Number of Participants", 
+       y = "Power") +
+theme_minimal(base_size = 12) +
+ theme(axis.text=element_text(size= 11))
+  
+print(power_plot)
+
+```
+
+## Appendix
+
+The Disgust questionnaire consists of 21 questions, divided into 3 domains: Moral, Sexual, and Pathogen. Each question is coded on a 0-6 scale.
+
+```{r disgust, message=FALSE, echo=FALSE, warning= FALSE, include=TRUE}
+
+disgust_ques = tibble(
+ Domain = c("Moral", "Moral", "Moral", "Moral", "Moral", "Moral", "Moral", "Sexual", "Sexual", "Sexual", "Sexual", "Sexual", "Sexual", "Sexual", "Pathogen", "Pathogen", "Pathogen", "Pathogen", "Pathogen", "Pathogen", "Pathogen"),
+Number = c("1", "2", "3", "4", "5", "6", "7", "1", "2", "3", "4", "5", "6", "7", "1", "2", "3", "4", "5", "6", "7"),
+Question = c("Shoplifting a candy bar from a convenience store", "Stealing from a neighbor", "A student cheating to get good grades", "Deceiving a friend", "Forging someone’s signature on a legal document","Cutting to the front of a line to purchase the last few tickets to a show", "Intentionally lying during a business transaction", "Hearing two strangers having sex", "Performing oral sex", "Watching a pornographic video", "Finding out that someone you don’t like has sexual fantasies about you", "Bringing someone you just met back to your room to have sex", "A stranger of the opposite sex intentionally rubbing your thigh in an elevator", "Having anal sex with someone of the opposite sex", "Stepping on dog poop", "Sitting next to someone who has red sores on their arm", "Shaking hands with a stranger who has sweaty palms", "Seeing some mold on old leftovers in your refrigerator", "Standing close to a person who has body odour", "Seeing a cockroach run across the floor", "Accidentally touching a person’s bloody cut")
+) |> kbl(caption = c("The Three Domains of Disgust Questionnaire")) %>%
+   kable_styling(bootstrap_options = c("bordered", "striped", "condensed"), 
+                 full_width = FALSE, position = "left", font_size = 14)
+
+disgust_ques
+
+```
+
+The SOI questionnaire consists of 9 questions, divided into 3 domains: Behaviour, Attitude, and Desire. Each domain is coded on a different 1-5 scale.
+
+```{r soi, message=FALSE, echo=FALSE, warning= FALSE, include=TRUE}
+
+soi_ques = tibble(
+  Domain = c("Behaviour", "Behaviour", "Behaviour", "Attitude", "Attitude", "Attitude", "Desire", "Desire", "Desire"
+), 
+Number = c("1", "2", "3", "1", "2", "3", "1", "2", "3"),
+Question =c("With how many different partners have you had sex within the past 12 months?", "With how many different partners have you had sexual intercourse on one and only one occasion?", "With how many different partners have you had sexual intercourse without having an interest in a long-term committed relationship with this person?", "Sex without love is OK.", "I can imagine myself being comfortable and enjoying “casual” sex with different partners.", "I do not want to have sex with a person until I am sure that we will have a long-term, serious relationship.", "How often do you have fantasies about having sex with someone you are not in a committed romantic relationship with?", "How often do you experience sexual arousal when you are in contact with someone you are not in a committed romantic relationship with?", "In everyday life, how often do you have spontaneous fantasies about having sex with someone you have just met?")
+) |> kbl(caption = c("The Revised SOI Questionnaire")) %>%
+   kable_styling(bootstrap_options = c("bordered", "striped", "condensed"), 
+                 full_width = FALSE, position = "left", font_size = 14)
+
+soi_ques
+
+```
+
+**Behavior scoring:**
+
+-   1 = "0"
+-   2 = "1"
+-   3 = "2 to 3"
+-   4 = "4 to 7"
+-   5 = "8 or more"
+
+**Attitude scoring:**
+
+-   1 = "totally agree"
+-   2 = "agree"
+-   3 = "neutral"
+-   4 = "disagree"
+-   5 = "totally disagree"
+
+**Desire scoring:**
+
+-   1 = "never"
+-   2 = "very seldom"
+-   3 = "about once a month"
+-   4 = "about once a week"
+-   5 = "nearly every day"
+
+## References
