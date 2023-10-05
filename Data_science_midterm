@@ -1,0 +1,212 @@
+---
+title: "Reproduced Report"
+author: "Student ID 2732822"
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float:  
+       collapsed: false
+       smooth_scroll: true
+    number_sections: false
+    theme: 
+      bootswatch: cerulean
+      version: 4
+    fig_caption: yes
+bibliography: references.bib
+csl: apa.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+    
+library(tidyverse)  #1. loads ggplot2 for plots
+library(patchwork)  #2. multi-part plots
+set.seed(2732822)   #3. makes sure random numbers are reproducible
+
+```
+
+## Introduction
+
+Participants completed the short form Empathy Quotient (EQ) and Systemizing Quotient (SQ) questionnaires [@wakabayashi2006b], as well as a brief demographic questionnaire asking for age and gender.
+
+The EQ consists of 22 items and the SQ consists of 25 items, each scored on a 0 to 2 scale, so possible scores on the EQ could range from 0 to 44 and scores on the SQ could range from 0 to 50.
+
+## Methods
+
+### Materials
+
+You can take a version of these questionnaires at [FaceResearch](http://faceresearch.org/quest/):
+
+-   [Empathy Quotient](http://faceresearch.org/)
+-   [Systemizing Quotient](http://faceresearch.org/)
+
+```{r graphs, include = FALSE}
+
+sub =read_csv("data/subjects.csv")
+excl =read_csv("data/exclusions.csv")
+
+#1. Number of unique ID's in exclusion table (all those excluded from subjects)
+excl_id= length(excl$user_id)
+
+#2. Number of people who did not complete EQ from exclusions table
+excl_eq= sum(is.na(excl$eq))
+
+#3. Number of people who did not complete SQ from exclusions table
+excl_sq= sum(is.na(excl$sq))
+
+#4. Total number of subjects in subjects table
+num_sub= length(sub$user_id)
+
+#5. The total number of subjects after subtracting those from exclusions table
+new_sub= num_sub - excl_id
+
+```
+
+### Participants
+
+After excluding participants (n = **`r excl_id`**) who did not complete either the EQ (n = **`r excl_eq`** ) or the SQ (n = **`r excl_sq`**), the total number of subjects decreased from **`r num_sub`** to **`r new_sub`**. See Figure \@ref(fig:subject) for the distribution of age and gender.
+
+### Descriptives
+
+```{r subject, fig.cap= ' The distribution of age and gender in participants after exclusions.',message=FALSE,warning=FALSE,echo=FALSE, results= FALSE}
+
+#1. Exclude ID's in exclusion table from subject table 
+sub_new = anti_join(sub, excl, by = "user_id")
+
+#2. Convert the character "age" to a numerical to facilitate the use of a             histogram
+nume_age = data.frame("user_id"=sub_new$user_id, "age"=as.numeric(sub_new$age),"gender"=sub_new$gender)
+
+#3. Plot the distribution of age and gender from the nume_age table
+ggplot(nume_age, aes(age,fill= gender)) +
+ geom_histogram(binwidth = 1,
+                stat = "count",
+                color= "black",
+                position = "stack",
+                alpha=1) +
+                ylab("Number of Subjects") +
+                xlab("Age") +
+                ggtitle("Subject Demographics") +
+                scale_fill_manual("Gender",values = c("darkorange3", "springgreen4","darkorchid4"),labels= c("Female", "Male","Missing")) +
+                theme_minimal(base_size = 15) + 
+                theme(axis.text=element_text(size= 12),
+                axis.title=element_text(size= 15), 
+                panel.grid = element_line(size = 0.8)) +
+                geom_segment(aes(x=18, y= 0, xend= 66,yend= 0))
+
+#4. message=FALSE hides messages 
+#5. warning=FALSE hides warnings 
+#6. echo=FALSE hides chunk 
+#7. results=FALSE hides results 
+#8. stat = "count" was used to make the graph discrete 
+#9. the panel.grid = element_line() was used to make the grid lines slightly        thicker in order to match the template. 
+#10.geom_segment() was used to draw a line across the y intercept = 0 (y-axis) in order to match the template. 
+  
+```
+
+```{r eqsq, fig.cap= 'The distribution of EQ and SQ scores.', message=FALSE,warning=FALSE,echo=FALSE, results= FALSE}
+
+emp_quo =read_csv("data/eq.csv")
+sys_quo =read_csv("data/sq.csv")
+
+#1. Join EQ table to sub_new table to ensure the user ids match
+eq_join= left_join(sub_new, emp_quo, by = "user_id")
+
+#2. Join SQ table to eq_join table to have one complete table consisting of the       subjects table, after excluding user ids from exclusion table, eq table and sq table 
+incl_dat = left_join(eq_join, sys_quo, by="user_id")
+
+#3. Plot the distribution of EQ from the incl_dat table
+eq_plot= ggplot(incl_dat, aes(eq )) +
+  geom_histogram(binwidth = 1,
+                fill = "firebrick", 
+                color= "black",
+                stat="count",
+                position = "dodge",
+                show.legend = FALSE,
+                size= 0.6,
+                alpha=1) +
+                ylab("Number of Subjects") + 
+                xlab("Empathy Quotient") +
+                theme_minimal(base_size = 15) +
+                theme(axis.text=element_text(size=12),
+                axis.title=element_text(size=15),
+                panel.grid = element_line(size = 0.8)) 
+               
+#4. Plot the distribution of SQ from the incl_dat table
+sq_plot= ggplot(incl_dat, aes(sq)) +
+  geom_histogram(binwidth = 1,
+                fill = "darkorchid4", 
+                color= "black",
+                stat="count",
+                position = "dodge", 
+                show.legend = FALSE,
+                size= 0.6,
+                alpha=1) +
+                ylab("Number of Subjects") + 
+                xlab("Systemizing Quotient") +
+                theme_minimal(base_size = 15) +
+                theme(axis.text=element_text(size=12),
+                axis.title=element_text(size=15),
+                panel.grid = element_line(size = 0.8)) +
+                geom_segment(aes(x=0, y= 0, xend= 50,yend= 0))
+
+eq_plot / sq_plot
+
+#5. size=0.6 was used to close the gaps that kept showing on my eq and sq graphs when I knitted the document. As a result, the lines around my bars are slightly thicker than the template. 
+
+```
+
+## Results
+
+We used the tidyverse package [@wickham2019a] for R [@rcoreteam2022] to process the data, create plots, and analyse the difference between female and male SQ scores.
+
+```{r, message=FALSE,warning=FALSE,echo=TRUE,results=FALSE}
+
+t.test(sq~gender, data = incl_dat)
+
+```
+
+```{r, message=FALSE,warning=FALSE,echo=FALSE, results= FALSE}
+
+a= t.test(sq~gender, data = incl_dat)
+pval= as.character(a$p.value)
+b= if_else(a$p.value<0.001, "p <", "p =")
+c= if_else(a$p.value<0.001, "0.001", pval)
+b
+c
+
+#1. Make the t.test code equal to a variable for easier reproducibility
+#2. Code F and M SQ scores use variable 'a'$estimate + [1] for F & [2] for M
+#3. Code t() use variable 'a'$parameter - correlates with df= (degrees of           freedom) in t.test code 
+#4. Code t()= use variable 'a'$statistic - correlates with t = in t.test code
+#5. Code p < 0.001
+#a. Work out the p.value from the t.test code and make it a character
+#b. Indicate that when p < 0.001 display "p < " & when p >= 0.001 then display "p = "
+#c. Indicate that when p < 0.001 display "0.001" and when p >= 0.001 then           display pval
+#6. Code CI = [] use variable 'a'$conf.int - use [1] for -8.72 and [2] for -5.37
+#7. 'round' & the numbers after the ',' in the () indicate what to round off to. 
+
+```
+
+We found that there was a significant difference between female SQ scores (M = **`r round(a$estimate[1],1)`**) and male SQ scores (M = **`r round(a$estimate[2],1)`**), t(**`r round(a$parameter,1)`**) = **`r round(a$statistic,2)`** , `r b` **`r c`**, 95% CI = [**`r round(a$conf.int[1],2)`**,**`r round(a$conf.int[2],2)`**].
+
+```{r results,fig.cap='The relationship between EQ and SQ by gender.', message=FALSE,warning=FALSE,echo=FALSE, results= FALSE}
+
+#1. Plot relationship between EQ and SQ by gender using incl_dat 
+ggplot(incl_dat, aes(eq, sq,colour=gender)) +
+  geom_point(alpha=0.20,
+             size= 1.7)+
+  geom_smooth(formula= y~x , method="lm") + 
+              scale_colour_manual("Gender",values = c("darkorange3", "springgreen4","darkorchid4"), labels=c('Female', 'Male','NA')) + 
+              theme_minimal(base_size = 15) + 
+              theme(axis.text=element_text(size=12),
+              axis.title=element_text(size=15),
+              panel.grid = element_line(size = 0.8)) +
+              scale_x_continuous("Empathy Quotient", breaks=seq(0,44,4)) +
+              scale_y_continuous("Systemizing Quotient",breaks=seq(0,48,4))
+
+#2. geom_point(size= 1.7) was used to make the dot size bigger in order to match the template.
+#3. I used breaks=seq() to specify increments and limits on each axis
+
+```
+
+## References
